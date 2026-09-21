@@ -163,6 +163,45 @@
 
   .empty { color: var(--text-muted); font-size: 13px; padding: 6px 0; }
 
+  .control-head {
+    display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+  }
+  .control-head > div:first-child { flex: 1 1 200px; }
+
+  .control-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gridline);
+  }
+  .control-row label { font-size: 13px; color: var(--text-secondary); }
+  .control-row .unit { font-size: 13px; color: var(--text-muted); }
+
+  input[type="number"] {
+    font: inherit; font-size: 14px; font-variant-numeric: tabular-nums;
+    width: 110px; padding: 6px 9px;
+    background: var(--page); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 7px;
+  }
+  input[type="number"]:focus-visible { outline: 2px solid var(--series-1); outline-offset: 1px; }
+
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 7px 15px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--series-1); color: #fff;
+  }
+  .btn.secondary { background: var(--surface-1); color: var(--text-primary); }
+  .btn.stop { background: var(--status-critical); }
+  .btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  .control-error { font-size: 12px; color: var(--status-critical); flex-basis: 100%; }
+  .control-error:empty { display: none; }
+
+  .control-readout {
+    margin-top: 12px; font-size: 12px; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
   @media (max-width: 480px) {
     .tile-value { font-size: 27px; }
     header { padding-top: 20px; }
@@ -181,6 +220,25 @@
       <span class="dot"></span><span id="live-text">connecting</span>
     </span>
   </header>
+
+  <h2>Production</h2>
+  <div class="card">
+    <div class="control-head">
+      <div>
+        <div class="chart-title" id="control-state">Checking the farm&hellip;</div>
+        <div class="chart-sub" id="control-detail">&nbsp;</div>
+      </div>
+      <button class="btn" id="production-toggle" disabled>&mdash;</button>
+    </div>
+    <div class="control-row">
+      <label for="rate-input">Rate</label>
+      <input id="rate-input" type="number" inputmode="decimal" step="1" disabled>
+      <span class="unit">bananas / second</span>
+      <button class="btn secondary" id="rate-apply" disabled>Apply</button>
+      <span class="control-error" id="control-error"></span>
+    </div>
+    <div class="control-readout" id="control-readout"></div>
+  </div>
 
   <h2>Current</h2>
   <div class="grid tiles" id="tiles"><div class="empty">Loading stats&hellip;</div></div>
@@ -692,6 +750,120 @@ $('table-toggle').addEventListener('click', (event) => {
   renderTable();
 });
 
+// --- production controls ---------------------------------------------------
+//
+// Proxied through this service at /api/farm/production, so the page never needs the farm's
+// address and no CORS configuration is required on the farm.
+
+const PRODUCTION_POLL_MS = 2000;
+
+let production = null;
+let controlBusy = false;
+
+// Set as soon as the field is edited and cleared once a change is accepted. A focus check
+// alone is not enough: an edit made while the field is not the active element was silently
+// overwritten by the next poll.
+let rateEdited = false;
+
+$('rate-input').addEventListener('input', () => { rateEdited = true; });
+
+function showControlError(message) {
+  $('control-error').textContent = message ?? '';
+}
+
+function renderProduction() {
+  const toggle = $('production-toggle');
+  const input = $('rate-input');
+  const apply = $('rate-apply');
+
+  if (!production) {
+    $('control-state').textContent = 'Farm unreachable';
+    $('control-detail').textContent = 'Production cannot be controlled right now.';
+    $('control-readout').textContent = '';
+    toggle.disabled = input.disabled = apply.disabled = true;
+    return;
+  }
+
+  $('control-state').textContent = production.running ? 'Running' : 'Stopped';
+  $('control-detail').textContent = production.running
+    ? `Generating about ${production.baseRatePerSecond.toLocaleString()} bananas per second, in waves.`
+    : 'No bananas are being generated.';
+
+  toggle.disabled = controlBusy;
+  toggle.textContent = production.running ? 'Stop' : 'Start';
+  toggle.classList.toggle('stop', production.running);
+
+  input.disabled = apply.disabled = controlBusy;
+  input.min = production.minRatePerSecond;
+  input.max = production.maxRatePerSecond;
+
+  // Never overwrite an edit in progress, whether or not the field still has focus.
+  if (!rateEdited && document.activeElement !== input) {
+    input.value = production.baseRatePerSecond;
+  }
+
+  $('control-readout').textContent = production.running
+    ? `regime ${production.regime} · ${production.multiplier.toFixed(2)}× · ` +
+      `about ${production.currentRatePerSecond.toFixed(1)}/s right now`
+    : '';
+}
+
+async function callProduction(method, body) {
+  controlBusy = method === 'POST';
+  if (controlBusy) renderProduction();
+
+  try {
+    const response = await fetch('/api/farm/production', {
+      method,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      // The farm's own validation message is passed through by the proxy, so show it
+      // rather than inventing a replacement.
+      showControlError(payload?.error ?? `Request failed (${response.status}).`);
+      if (payload?.current) production = payload.current;
+      return;
+    }
+
+    production = payload;
+    showControlError(null);
+
+    // The server has the value now, so the field may track it again.
+    if (method === 'POST') rateEdited = false;
+  } catch {
+    production = null;
+    showControlError('Could not reach the farm.');
+  } finally {
+    controlBusy = false;
+    renderProduction();
+  }
+}
+
+$('production-toggle').addEventListener('click', () => {
+  if (!production) return;
+  callProduction('POST', { running: !production.running });
+});
+
+function applyRate() {
+  const value = Number($('rate-input').value);
+
+  if (!Number.isFinite(value)) {
+    showControlError('Enter a number.');
+    return;
+  }
+
+  callProduction('POST', { baseRatePerSecond: value });
+}
+
+$('rate-apply').addEventListener('click', applyRate);
+$('rate-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') applyRate();
+});
+
 // --- boot ------------------------------------------------------------------
 
 (async function start() {
@@ -705,8 +877,10 @@ $('table-toggle').addEventListener('click', (event) => {
   }
 
   connect();
-  await loadFarmBreakdowns();
+
+  await Promise.all([loadFarmBreakdowns(), callProduction('GET')]);
   setInterval(loadFarmBreakdowns, FARM_POLL_MS);
+  setInterval(() => { if (!controlBusy) callProduction('GET'); }, PRODUCTION_POLL_MS);
 })();
 </script>
 </body>

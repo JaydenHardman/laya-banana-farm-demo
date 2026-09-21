@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using BananaFarm.Market;
+using BananaFarm.Market.Control;
 using BananaFarm.Market.Ingest;
 using BananaFarm.Market.Live;
 using BananaFarm.Market.Metrics;
@@ -37,6 +38,15 @@ builder.Services.AddSingleton<IStat, GoldenCountStat>();
 builder.Services.AddSingleton<StatRegistry>();
 builder.Services.AddSingleton<StatsLiveHandler>();
 builder.Services.AddSingleton<MarketRecorder>();
+
+var farmBaseAddress =
+    builder.Configuration["Market:FarmBaseAddress"] ?? "http://farm:8080";
+
+builder.Services.AddHttpClient<FarmControlClient>(client =>
+{
+    client.BaseAddress = new Uri(farmBaseAddress);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 builder.Services.AddBananaMessaging(builder.Configuration);
 builder.Services.AddHostedService<MarketConsumer>();
@@ -104,6 +114,18 @@ app.MapGet("/stats/{statId}/by-farm", async (
     });
 });
 
+// Production controls for the dashboard. Proxied rather than called directly so the page
+// stays on one origin and never has to know the farm's address.
+app.MapGet("/api/farm/production", async (
+    FarmControlClient farm,
+    CancellationToken cancellationToken) => ToResult(await farm.GetProductionAsync(cancellationToken)));
+
+app.MapPost("/api/farm/production", async (
+    ProductionChangeRequest request,
+    FarmControlClient farm,
+    CancellationToken cancellationToken) =>
+    ToResult(await farm.SetProductionAsync(request, cancellationToken)));
+
 app.Map("/stats/live", async (HttpContext context, StatsLiveHandler handler) =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
@@ -140,3 +162,9 @@ static IResult UnknownStat(string statId, StatRegistry registry) => Results.NotF
     error = $"No stat with id '{statId}'.",
     validStats = registry.Ids,
 });
+
+// The farm's own status code and body are passed through, so its validation messages reach
+// the dashboard unaltered rather than being restated here.
+static IResult ToResult(FarmCallResult result) => result.Body is { } body
+    ? Results.Json(body, statusCode: result.StatusCode)
+    : Results.Json(new { error = result.Error }, statusCode: result.StatusCode);

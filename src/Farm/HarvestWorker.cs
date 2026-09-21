@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using BananaFarm.Contracts;
 using BananaFarm.Farm.Generation;
+using BananaFarm.Farm.Production;
 using BananaFarm.Farm.Waves;
 using BananaFarm.Messaging;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,7 @@ public sealed class HarvestWorker : BackgroundService
     private readonly BananaGenerator _generator;
     private readonly WaveRateController _waves;
     private readonly IMessagePublisher _publisher;
+    private readonly ProductionControl _production;
     private readonly IRandomSource _random;
     private readonly FarmOptions _options;
     private readonly TimeProvider _time;
@@ -28,6 +30,7 @@ public sealed class HarvestWorker : BackgroundService
         BananaGenerator generator,
         WaveRateController waves,
         IMessagePublisher publisher,
+        ProductionControl production,
         IRandomSource random,
         IOptions<FarmOptions> options,
         TimeProvider time,
@@ -36,6 +39,7 @@ public sealed class HarvestWorker : BackgroundService
         _generator = generator;
         _waves = waves;
         _publisher = publisher;
+        _production = production;
         _random = random;
         _options = options.Value;
         _time = time;
@@ -48,7 +52,7 @@ public sealed class HarvestWorker : BackgroundService
 
         _logger.LogInformation(
             "Harvesting at a base rate of {Rate}/s, emitting every {Tick}ms.",
-            _options.BaseRatePerSecond,
+            _production.Current.BaseRatePerSecond,
             _options.TickMilliseconds);
 
         using var timer = new PeriodicTimer(tick, _time);
@@ -60,7 +64,18 @@ public sealed class HarvestWorker : BackgroundService
         {
             try
             {
-                var rate = _waves.Advance(tick, _options.BaseRatePerSecond);
+                var production = _production.Current;
+
+                if (!production.Running)
+                {
+                    // Paused: the wave simulation is not advanced either, so resuming picks
+                    // up the regime it was in rather than jumping to a fresh one.
+                    producedSinceReport = 0;
+                    reportStopwatch.Restart();
+                    continue;
+                }
+
+                var rate = _waves.Advance(tick, production.BaseRatePerSecond);
                 var count = PoissonSampler.Sample(rate * tick.TotalSeconds, _random);
 
                 if (count > 0)

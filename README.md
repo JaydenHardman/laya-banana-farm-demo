@@ -101,6 +101,34 @@ Light and dark are separately-chosen palettes rather than an inverted flip, farm
 fixed colour so a farm never changes hue as values move, and every bar carries a direct
 value label. There is a table view behind the **show** toggle for the same numbers as text.
 
+### Controlling production
+
+The **Production** panel starts and stops the farm and sets its rate while everything runs.
+Nothing needs restarting.
+
+The page calls `/api/farm/production` on the market service, which proxies to the farm. That
+keeps the browser on one origin — no CORS on the farm, and no farm port baked into the page —
+and the farm stays the only thing that decides what a valid change is, so its validation
+messages reach the UI unaltered.
+
+The same endpoints work from a terminal:
+
+```bash
+curl -s localhost:8083/api/farm/production | jq
+```
+
+```bash
+curl -s -X POST localhost:8083/api/farm/production -H 'content-type: application/json' -d '{"running":false}' | jq
+```
+
+```bash
+curl -s -X POST localhost:8083/api/farm/production -H 'content-type: application/json' -d '{"baseRatePerSecond":25}' | jq
+```
+
+Both body fields are optional, so starting and stopping is independent of changing the rate.
+Note that the rate is not capped at what the rest of the stack can consume: set it above
+about 9/s and the `factory.production` queue will grow (see **Things worth knowing**).
+
 ## Poking at it
 
 ```bash

@@ -21,6 +21,12 @@ public sealed class MarketOptions
     /// </summary>
     public bool ConsumeRawProduction { get; set; }
 
+    /// <summary>
+    /// Base address of the farm service, used to proxy the dashboard's production controls.
+    /// </summary>
+    [Required]
+    public string FarmBaseAddress { get; set; } = "http://farm:8080";
+
     /// <summary>Default push interval for a WebSocket subscriber that does not specify one.</summary>
     [Range(1, 300)]
     public int DefaultLiveIntervalSeconds { get; set; } = 5;

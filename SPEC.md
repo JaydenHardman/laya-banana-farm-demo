@@ -161,6 +161,28 @@ Messages are published in batches to keep broker round-trips off the hot path.
 
 ---
 
+### 4.5 Production control
+
+Generation is controllable at runtime, so the rate can be changed and production started or
+stopped without a restart.
+
+| Route | Purpose |
+|---|---|
+| `GET /production` | Current state: running, base rate, regime, multiplier, effective rate, allowed bounds. |
+| `POST /production` | Apply a change. Body `{ running?, baseRatePerSecond? }` — both optional. |
+
+`ProductionControl` holds the live values; `FarmOptions.BaseRatePerSecond` becomes the value
+the farm *starts* at rather than the value permanently in force. A rejected request changes
+nothing at all, so a caller never gets a half-applied change. A rate of zero is refused with
+a message pointing at stop, since silently mapping it to "stopped" would make the reported
+rate lie about what would resume.
+
+While stopped, the wave simulation is not advanced either, so resuming picks up the regime it
+paused in rather than jumping to a fresh one, and `currentRatePerSecond` reports zero rather
+than a stale multiplier that would imply output.
+
+The dashboard reaches these through a proxy on `market` (§8.6).
+
 ## 5. Service: `classification`
 
 FastAPI wrapper over the Laya model. Consumed by `factory` over REST.
@@ -354,6 +376,21 @@ is one class" holds through to the UI.
 
 Charts are built once and updated in place on each snapshot. Rebuilding them per snapshot
 destroyed the hover layer twice a second, so a tooltip could never finish fading in.
+
+### 8.6 Farm control proxy
+
+| Route | Purpose |
+|---|---|
+| `GET /api/farm/production` | Forwards to the farm's `GET /production`. |
+| `POST /api/farm/production` | Forwards a change to the farm. |
+
+The farm's status code and body are passed through untouched, so its validation messages
+reach the dashboard rather than being restated. Proxying rather than calling the farm
+directly keeps the page on a single origin: no CORS configuration on the farm, and no farm
+address compiled into the page. The farm's address is `Market:FarmBaseAddress`.
+
+If the farm is unreachable the proxy returns 503 with an explanation; the dashboard shows
+the controls disabled rather than treating it as an error.
 
 ## 9. Persistence seam
 

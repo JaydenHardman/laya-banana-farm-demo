@@ -108,6 +108,7 @@ services:
     environment:
       RabbitMq__Uri: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       Market__RedisConfiguration: redis:6379
+      Market__FarmBaseAddress: http://farm:8080
       Market__ConsumeRawProduction: ${MARKET_CONSUME_RAW_PRODUCTION:-false}
     depends_on:
       rabbitmq:
