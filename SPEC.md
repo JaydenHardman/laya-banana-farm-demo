@@ -286,8 +286,14 @@ Single topic exchange `banana` (durable). Routing keys:
 | `tooLongToFill` | `factory` | `TrackedBanana` (one per banana) |
 | `filledBox` | `factory` | `FilledBox` |
 
-`factory` binds `bananaProduction`. `market` binds `#`. Queues are durable and quorum;
-messages are persistent.
+`factory` binds `bananaProduction`. `market` binds the four factory output keys. It does
+*not* bind `bananaProduction` by default: no market metric is derived from raw production,
+and binding it would route the farm's full 200 msg/s through `market` for nothing. Set
+`Market:ConsumeRawProduction` to bind `#` instead.
+
+Queues are durable and quorum; messages are persistent. Publisher confirmations are
+disabled — waiting for a broker ack per message would cap the farm well below 200/s, and a
+lost synthetic banana costs nothing.
 
 ---
 
@@ -335,6 +341,20 @@ tracking, and no outbound-egress security surface.
 
 ---
 
+### 8.5 Dashboard
+
+`market` serves a single-page dashboard at `/` from `wwwroot`, using
+`UseDefaultFiles`/`UseStaticFiles`. It lives in the market service rather than a container of
+its own so that it shares an origin with the REST API and the WebSocket: no CORS
+configuration, no second image, and the stack still starts with one command.
+
+The page reads the `/stats` catalogue and renders a tile, a time series and a per-farm
+breakdown for every stat it finds. Nothing in it names a metric, so §8.2's "adding a metric
+is one class" holds through to the UI.
+
+Charts are built once and updated in place on each snapshot. Rebuilding them per snapshot
+destroyed the hover layer twice a second, so a tooltip could never finish fading in.
+
 ## 9. Persistence seam
 
 Redis is a deliberate placeholder. Every piece of state sits behind an interface registered
@@ -354,8 +374,10 @@ SQL implementation is a direct translation.
 
 ## 10. Testing
 
-`xunit` for C#, `pytest` for Python. Coverage is targeted at logic that carries risk rather
-than at a global percentage.
+`xunit.v3` for C#, `pytest` for Python. Coverage is targeted at logic that carries risk
+rather than at a global percentage. `global.json` selects Microsoft.Testing.Platform, which
+is how .NET 10 runs xunit.v3 projects; `dotnet test --solution BananaFarm.slnx` runs
+everything. Current count: 89 C# tests, 28 Python tests.
 
 **Tested:**
 - Distribution sampler over 100k draws: every invariant in §4.1, within statistical
@@ -365,12 +387,17 @@ than at a global percentage.
   against an injected clock, opens a new box when no matching box has space.
 - Routing precedence, particularly golden + `throwAway` → `pastRipe`.
 - Cache bucket key derivation.
-- Market aggregators: average, loss accumulation, golden count, per-farm split.
-- Stat registry discovery and WebSocket subscription frame validation.
-- Classification service request/response contract against `StubBackend`.
+- Market aggregators: average, loss accumulation, golden count, and the per-farm share split
+  that stops a multi-farm box inflating every contributing farm.
+- Stat registry: discovery, case-insensitive lookup, duplicate-id rejection.
+- Classification service request/response contract against `StubBackend`, and the
+  translation of Laya's raw reply — fractional scores, out-of-range scores, unknown grades,
+  missing fields.
 
-**Not tested:** DI wiring, DTO serialization, health endpoints, Compose glue. These fail
-loudly at startup rather than silently in production.
+**Not tested:** DI wiring, DTO serialization, health endpoints, Compose glue, the WebSocket
+handler's transport loop, and `RedisBoxRepository`'s Lua scripts (they need a live server;
+the same `IBoxRepository` contract is covered against the in-memory implementation, and the
+Redis path is exercised by the end-to-end run).
 
 Randomness is injected via `IRandomSource` and time via `TimeProvider`, so every
 distribution and timeout test is deterministic and fast.

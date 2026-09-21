@@ -88,6 +88,19 @@ If `mps` fails, use `CLASSIFIER_DEVICE=cpu` — host CPU is still faster than th
 
 ---
 
+## The dashboard
+
+<http://localhost:8083> — served by the market service itself, so it shares an origin with
+the API and the WebSocket. No CORS, no extra container, still one `compose up`.
+
+Stat tiles, a time series per metric, and a per-farm breakdown, all fed by the WebSocket at
+a 2s interval. It reads `/stats` and renders whatever is advertised, so a metric added to
+the market service appears with no change to the page.
+
+Light and dark are separately-chosen palettes rather than an inverted flip, farms keep a
+fixed colour so a farm never changes hue as values move, and every bar carries a direct
+value label. There is a table view behind the **show** toggle for the same numbers as text.
+
 ## Poking at it
 
 ```bash

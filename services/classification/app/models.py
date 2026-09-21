@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.description import describe_banana
+
 FarmOrigin = Literal["XFarm", "TheBananaBoyz", "KindaCrazyNanas"]
 HarvestGrade = Literal["A", "B", "C", "Golden"]
 ClassifiedGrade = Literal["A", "B", "C", "Golden", "Other"]
@@ -25,12 +27,17 @@ class BananaPayload(BaseModel):
     price: float
 
     def to_model_state(self) -> str:
-        """Render the banana as the text state Laya reasons over."""
-        return (
-            f"Banana harvested {self.date_harvested[:10]} from farm {self.farm_origin}. "
-            f"Weight {self.weight:.1f}g. Ripeness {self.ripeness:.3f} on a scale where 0 is "
-            f"raw, 0.5 is perfectly ripe and 1 is expired. Harvest grade {self.grade}. "
-            f"Price {self.price:.2f}."
+        """
+        Render the banana as the text state Laya reasons over.
+
+        Deliberately qualitative. See :mod:`app.description` for why the numeric fields are
+        translated into appearance rather than passed through.
+        """
+        return describe_banana(
+            farm_origin=self.farm_origin,
+            weight_grams=self.weight,
+            ripeness=self.ripeness,
+            grade=self.grade,
         )
 
 

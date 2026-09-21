@@ -39,6 +39,12 @@ class Settings:
     max_batch_size: int
     """Largest batch accepted by /classify/batch."""
 
+    log_verdicts: bool
+    """
+    Log the state sent to the model and the answers that came back, one pair per inference.
+    Only cache misses reach the model, so this stays readable at production rates.
+    """
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
@@ -59,4 +65,6 @@ def get_settings() -> Settings:
         device=os.getenv("CLASSIFIER_DEVICE", "auto").strip().lower(),
         max_concurrency=_int_env("CLASSIFIER_MAX_CONCURRENCY", default_concurrency),
         max_batch_size=_int_env("CLASSIFIER_MAX_BATCH_SIZE", 64),
+        log_verdicts=os.getenv("CLASSIFIER_LOG_VERDICTS", "true").strip().lower()
+        not in {"0", "false", "no"},
     )

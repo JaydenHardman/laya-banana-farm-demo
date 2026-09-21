@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en" data-palette="#2a78d6,#eb6834,#1baf7a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banana Market</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:           #f9f9f7;
+    --surface-1:      #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11, 11, 11, 0.10);
+    --series-1:       #2a78d6;
+    --farm-1:         #2a78d6;
+    --farm-2:         #eb6834;
+    --farm-3:         #1baf7a;
+    --status-good:    #0ca30c;
+    --status-critical:#d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255, 255, 255, 0.10);
+      --series-1:       #3987e5;
+      --farm-1:         #3987e5;
+      --farm-2:         #d95926;
+      --farm-3:         #199e70;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:           #0d0d0d;
+    --surface-1:      #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255, 255, 255, 0.10);
+    --series-1:       #3987e5;
+    --farm-1:          #3987e5;
+    --farm-2:         #d95926;
+    --farm-3:         #199e70;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0 16px 56px;
+    background: var(--page);
+    color: var(--text-primary);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px 20px;
+    padding: 28px 0 20px;
+  }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); font-size: 13px; }
+
+  .live {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: none; }
+  .live[data-state="open"]    .dot { background: var(--status-good); }
+  .live[data-state="closed"]  .dot { background: var(--status-critical); }
+
+  h2 {
+    margin: 32px 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .grid { display: grid; gap: 12px; }
+  .tiles  { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .charts { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  .tile-label { font-size: 13px; color: var(--text-secondary); }
+  .tile-value {
+    margin: 6px 0 2px;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .tile-unit { font-size: 13px; font-weight: 400; color: var(--text-muted); margin-left: 4px; }
+  .tile-meta { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .chart-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+  .plot { position: relative; }
+  svg { display: block; width: 100%; overflow: visible; }
+
+  .tip {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .1s;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14);
+    z-index: 5;
+  }
+  .tip b { font-variant-numeric: tabular-nums; }
+  .tip-when { color: var(--text-muted); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--gridline); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  td { font-variant-numeric: tabular-nums; }
+  .swatch {
+    display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+    margin-right: 7px; vertical-align: baseline;
+  }
+
+  .toggle {
+    font: inherit; font-size: 13px; cursor: pointer;
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 7px; padding: 5px 11px;
+  }
+  .toggle:hover { color: var(--text-primary); }
+
+  .empty { color: var(--text-muted); font-size: 13px; padding: 6px 0; }
+
+  @media (max-width: 480px) {
+    .tile-value { font-size: 27px; }
+    header { padding-top: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Banana Market</h1>
+      <div class="sub" id="subtitle">Connecting&hellip;</div>
+    </div>
+    <span class="live" id="live" data-state="connecting">
+      <span class="dot"></span><span id="live-text">connecting</span>
+    </span>
+  </header>
+
+  <h2>Current</h2>
+  <div class="grid tiles" id="tiles"><div class="empty">Loading stats&hellip;</div></div>
+
+  <h2>Over time</h2>
+  <div class="grid charts" id="series"></div>
+
+  <h2>By farm</h2>
+  <div class="grid charts" id="farms"></div>
+
+  <h2 style="display:flex;align-items:center;gap:12px">
+    Table
+    <button class="toggle" id="table-toggle" aria-expanded="false">show</button>
+  </h2>
+  <div class="card" id="table-card" hidden></div>
+
+</div>
+
+<script type="module">
+// ---------------------------------------------------------------------------
+// The dashboard renders whatever /stats advertises. Nothing here names a metric,
+// so a stat added to the market service appears with no change to this file.
+// ---------------------------------------------------------------------------
+
+const HISTORY_LIMIT = 180;       // snapshots retained per stat
+const FARM_POLL_MS  = 5000;      // /stats/{id}/by-farm is REST, not pushed
+const INTERVAL_S    = 2;         // requested WebSocket push interval
+
+// Colour follows the farm, never its rank or its position in a sorted list.
+const FARM_COLOR = {
+  XFarm:           'var(--farm-1)',
+  TheBananaBoyz:   'var(--farm-2)',
+  KindaCrazyNanas: 'var(--farm-3)',
+};
+
+const state = {
+  catalogue: [],
+  history: new Map(),   // stat id -> [{ t, value, sampleCount }]
+  byFarm: new Map(),    // stat id -> { farm: value }
+};
+
+const $ = (id) => document.getElementById(id);
+
+// --- formatting ------------------------------------------------------------
+
+const formatValue = (value, unit) =>
+  unit === 'currency'
+    ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+// Axis ticks need enough precision to tell each other apart. A series hovering around 150
+// steps by 0.05, and a fixed 1-decimal format rendered every tick as "150".
+const formatTick = (value, step) => {
+  if (Math.abs(value) >= 10000) {
+    return (value / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'k';
+  }
+
+  const decimals = step > 0 ? Math.min(4, Math.max(0, Math.ceil(-Math.log10(step)))) : 0;
+
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
+const formatClock = (t) =>
+  new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+// --- data ------------------------------------------------------------------
+
+async function loadCatalogue() {
+  const response = await fetch('/stats');
+  if (!response.ok) throw new Error(`/stats returned ${response.status}`);
+
+  const body = await response.json();
+  state.catalogue = body.stats ?? [];
+
+  for (const stat of state.catalogue) {
+    if (!state.history.has(stat.id)) state.history.set(stat.id, []);
+  }
+}
+
+async function loadFarmBreakdowns() {
+  await Promise.all(state.catalogue.map(async (stat) => {
+    try {
+      const response = await fetch(`/stats/${encodeURIComponent(stat.id)}/by-farm`);
+      if (!response.ok) return;
+
+      const body = await response.json();
+      const farms = {};
+      for (const [farm, value] of Object.entries(body.farms ?? {})) farms[farm] = value.value ?? 0;
+      state.byFarm.set(stat.id, farms);
+    } catch {
+      // A failed poll leaves the previous breakdown on screen rather than blanking it.
+    }
+  }));
+
+  renderFarms();
+}
+
+function recordSnapshot(snapshot) {
+  const at = Date.parse(snapshot.asOf) || Date.now();
+
+  for (const [id, value] of Object.entries(snapshot.stats ?? {})) {
+    const series = state.history.get(id) ?? [];
+    series.push({ t: at, value: value.value ?? 0, sampleCount: value.sampleCount ?? 0 });
+    if (series.length > HISTORY_LIMIT) series.shift();
+    state.history.set(id, series);
+  }
+
+  renderTiles();
+  renderSeries();
+  renderTable();
+}
+
+// --- websocket -------------------------------------------------------------
+
+let socket = null;
+let reconnectDelay = 1000;
+
+function setLive(status, text) {
+  $('live').dataset.state = status;
+  $('live-text').textContent = text;
+}
+
+function connect() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  socket = new WebSocket(`${protocol}//${location.host}/stats/live`);
+
+  socket.addEventListener('open', () => {
+    reconnectDelay = 1000;
+    setLive('open', `live · every ${INTERVAL_S}s`);
+    // An empty subscribe list means "every stat", so new metrics stream without a change here.
+    socket.send(JSON.stringify({ subscribe: [], intervalSeconds: INTERVAL_S }));
+  });
+
+  socket.addEventListener('message', (event) => {
+    let frame;
+    try { frame = JSON.parse(event.data); } catch { return; }
+
+    if (frame.error) {
+      setLive('closed', frame.error);
+      return;
+    }
+    if (frame.stats) {
+      recordSnapshot(frame);
+      $('subtitle').textContent =
+        `${state.catalogue.length} metrics · updated ${formatClock(Date.parse(frame.asOf) || Date.now())}`;
+    }
+  });
+
+  socket.addEventListener('close', () => {
+    setLive('closed', 'disconnected — retrying');
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 15000);
+  });
+
+  socket.addEventListener('error', () => socket.close());
+}
+
+// --- svg helpers -----------------------------------------------------------
+
+const svgEl = (name, attrs = {}) => {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  return node;
+};
+
+function niceTicks(min, max, count = 3) {
+  if (!(max > min)) return [min];
+  const raw = (max - min) / count;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? magnitude * 10;
+
+  const ticks = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step / 1000; v += step) ticks.push(v);
+  return ticks;
+}
+
+// --- tiles -----------------------------------------------------------------
+
+function renderTiles() {
+  const host = $('tiles');
+  host.replaceChildren();
+
+  if (!state.catalogue.length) {
+    host.append(Object.assign(document.createElement('div'), { className: 'empty', textContent: 'No stats published.' }));
+    return;
+  }
+
+  for (const stat of state.catalogue) {
+    const series = state.history.get(stat.id) ?? [];
+    const latest = series.at(-1);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="tile-label">${stat.name}</div>
+      <div class="tile-value">${latest ? formatValue(latest.value, stat.unit) : '—'}<span class="tile-unit">${stat.unit}</span></div>
+      <div class="tile-meta">${latest ? `${latest.sampleCount.toLocaleString()} observation${latest.sampleCount === 1 ? '' : 's'}` : 'awaiting data'}</div>`;
+    host.append(card);
+  }
+}
+
+// --- time series: one small multiple per stat, one series each -------------
+//
+// Charts are built once and updated in place. Rebuilding them on every snapshot destroyed
+// the hover layer twice a second: the crosshair fired, but the tooltip node was replaced
+// before it could finish fading in, so hovering a live chart showed nothing.
+
+const charts = new Map();   // stat id -> { card, update(series) }
+
+function renderSeries() {
+  const host = $('series');
+
+  for (const stat of state.catalogue) {
+    let chart = charts.get(stat.id);
+
+    if (!chart) {
+      chart = createChart(stat);
+      charts.set(stat.id, chart);
+      host.append(chart.card);
+    }
+
+    chart.update(state.history.get(stat.id) ?? []);
+  }
+}
+
+function createChart(stat) {
+  const width = 440;
+  const height = 168;
+  const pad = { top: 10, right: 12, bottom: 22, left: 46 };
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="chart-title">${stat.name}</div>
+    <div class="chart-sub">${stat.description}</div>`;
+
+  const plot = document.createElement('div');
+  plot.className = 'plot';
+  card.append(plot);
+
+  const empty = document.createElement('div');
+  empty.className = 'empty';
+  empty.textContent = 'Collecting…';
+  plot.append(empty);
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${width} ${height}`,
+    role: 'img',
+    'aria-label': `${stat.name} over time`,
+    hidden: 'hidden',
+  });
+
+  const grid = svgEl('g');
+  const baseline = svgEl('line', {
+    x1: pad.left, x2: width - pad.right, y1: height - pad.bottom, y2: height - pad.bottom,
+    stroke: 'var(--baseline)', 'stroke-width': 1,
+  });
+  const line = svgEl('path', {
+    fill: 'none', stroke: 'var(--series-1)',
+    'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+  });
+  // Selective direct label: the current value only, never a number on every point.
+  const head = svgEl('circle', {
+    r: 4, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2,
+  });
+  const startLabel = svgEl('text', {
+    y: height - pad.bottom + 15, 'text-anchor': 'start',
+    fill: 'var(--text-muted)', 'font-size': 11, 'font-variant-numeric': 'tabular-nums',
+  });
+  const endLabel = svgEl('text', {
+    y: height - pad.bottom + 15, 'text-anchor': 'end',
+    fill: 'var(--text-muted)', 'font-size': 11, 'font-variant-numeric': 'tabular-nums',
+  });
+  const crosshair = svgEl('line', {
+    y1: pad.top, y2: height - pad.bottom,
+    stroke: 'var(--baseline)', 'stroke-width': 1, opacity: 0,
+  });
+  const marker = svgEl('circle', {
+    r: 5, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2, opacity: 0,
+  });
+  const surface = svgEl('rect', {
+    x: pad.left, y: pad.top,
+    width: width - pad.left - pad.right, height: height - pad.top - pad.bottom,
+    fill: 'transparent', style: 'cursor:crosshair',
+  });
+
+  svg.append(grid, baseline, line, head, startLabel, endLabel, crosshair, marker, surface);
+
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  plot.append(svg, tip);
+
+  // Latest data and scales, captured so the hover handler always reads current values
+  // without being rebound.
+  let current = { series: [], x: () => 0, y: () => 0 };
+
+  surface.addEventListener('pointermove', (event) => {
+    if (current.series.length < 2) return;
+
+    const box = svg.getBoundingClientRect();
+    const local = ((event.clientX - box.left) / box.width) * width;
+    const index = Math.max(0, Math.min(current.series.length - 1,
+      Math.round(((local - pad.left) / (width - pad.left - pad.right)) * (current.series.length - 1))));
+    const point = current.series[index];
+
+    crosshair.setAttribute('x1', current.x(index));
+    crosshair.setAttribute('x2', current.x(index));
+    crosshair.setAttribute('opacity', 1);
+    marker.setAttribute('cx', current.x(index));
+    marker.setAttribute('cy', current.y(point.value));
+    marker.setAttribute('opacity', 1);
+
+    tip.innerHTML = `<b>${formatValue(point.value, stat.unit)}</b> ${stat.unit}<br>
+      <span class="tip-when">${formatClock(point.t)} · ${point.sampleCount.toLocaleString()} obs</span>`;
+    tip.style.opacity = '1';
+    const left = (current.x(index) / width) * box.width;
+    tip.style.left = `${Math.min(Math.max(left + 12, 0), Math.max(box.width - 160, 0))}px`;
+    tip.style.top = `${(current.y(point.value) / height) * box.height - 8}px`;
+  });
+
+  surface.addEventListener('pointerleave', () => {
+    crosshair.setAttribute('opacity', 0);
+    marker.setAttribute('opacity', 0);
+    tip.style.opacity = '0';
+  });
+
+  function update(series) {
+    if (series.length < 2) return;
+
+    empty.hidden = true;
+    svg.removeAttribute('hidden');
+
+    const values = series.map((point) => point.value);
+    const lowest = Math.min(...values);
+    const highest = Math.max(...values);
+
+    let min = lowest;
+    let max = highest;
+    if (min === max) { min -= 1; max += 1; }
+
+    // A little headroom keeps the line off the frame edges.
+    const span = max - min;
+    min -= span * 0.08;
+    max += span * 0.08;
+
+    // Counts and totals cannot go negative, so a flat-zero series must not draw a -1 tick.
+    if (lowest >= 0) min = Math.max(min, 0);
+
+    const x = (i) => pad.left + (i / (series.length - 1)) * (width - pad.left - pad.right);
+    const y = (v) => pad.top + (1 - (v - min) / (max - min)) * (height - pad.top - pad.bottom);
+
+    current = { series, x, y };
+
+    // Recessive hairline grid, solid — never dashed.
+    grid.replaceChildren();
+    const ticks = niceTicks(min, max);
+    const tickStep = ticks.length > 1 ? ticks[1] - ticks[0] : 0;
+
+    for (const tick of ticks) {
+      grid.append(svgEl('line', {
+        x1: pad.left, x2: width - pad.right, y1: y(tick), y2: y(tick),
+        stroke: 'var(--gridline)', 'stroke-width': 1,
+      }));
+      const label = svgEl('text', {
+        x: pad.left - 8, y: y(tick) + 4, 'text-anchor': 'end',
+        fill: 'var(--text-muted)', 'font-size': 11, 'font-variant-numeric': 'tabular-nums',
+      });
+      label.textContent = formatTick(tick, tickStep);
+      grid.append(label);
+    }
+
+    line.setAttribute('d', series
+      .map((point, i) => `${i ? 'L' : 'M'}${x(i).toFixed(2)},${y(point.value).toFixed(2)}`)
+      .join(' '));
+
+    const last = series.at(-1);
+    head.setAttribute('cx', x(series.length - 1));
+    head.setAttribute('cy', y(last.value));
+
+    startLabel.setAttribute('x', x(0));
+    startLabel.textContent = formatClock(series[0].t);
+    endLabel.setAttribute('x', x(series.length - 1));
+    endLabel.textContent = formatClock(last.t);
+  }
+
+  return { card, update };
+}
+
+// --- per-farm bars ---------------------------------------------------------
+
+function renderFarms() {
+  const host = $('farms');
+  host.replaceChildren();
+
+  for (const stat of state.catalogue) {
+    const farms = state.byFarm.get(stat.id);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="chart-title">${stat.name}</div>
+      <div class="chart-sub">by farm of origin</div>`;
+    host.append(card);
+
+    if (!farms || !Object.keys(farms).length) {
+      card.insertAdjacentHTML('beforeend', '<div class="empty">Collecting&hellip;</div>');
+      continue;
+    }
+
+    card.append(farmBars(farms, stat));
+  }
+}
+
+function farmBars(farms, stat) {
+  // Fixed order, so a farm never changes position or colour as values move.
+  const entries = Object.keys(FARM_COLOR).map((farm) => [farm, farms[farm] ?? 0]);
+  const max = Math.max(...entries.map(([, value]) => value), 1);
+
+  const rowHeight = 30;
+  const barHeight = 11;
+  const width = 440;
+  const labelWidth = 128;
+  const valueWidth = 76;
+  const height = entries.length * rowHeight + 4;
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${width} ${height}`,
+    role: 'img',
+    'aria-label': `${stat.name} by farm`,
+  });
+
+  entries.forEach(([farm, value], row) => {
+    const y = row * rowHeight + 6;
+    const trackWidth = width - labelWidth - valueWidth;
+    const barWidth = Math.max(value > 0 ? 3 : 0, (value / max) * trackWidth);
+
+    const name = svgEl('text', {
+      x: 0, y: y + barHeight, fill: 'var(--text-secondary)', 'font-size': 12,
+    });
+    name.textContent = farm;
+    svg.append(name);
+
+    svg.append(svgEl('rect', {
+      x: labelWidth, y, width: Math.max(trackWidth, 0), height: barHeight,
+      rx: 4, fill: 'var(--gridline)', opacity: 0.55,
+    }));
+
+    if (barWidth > 0) {
+      const bar = svgEl('rect', {
+        x: labelWidth, y, width: barWidth, height: barHeight,
+        rx: 4, fill: FARM_COLOR[farm],
+      });
+      // Every bar is already directly labelled, so hover only needs to restate the pairing.
+      const title = svgEl('title');
+      title.textContent = `${farm}: ${formatValue(value, stat.unit)} ${stat.unit}`;
+      bar.append(title);
+      svg.append(bar);
+    }
+
+    // Direct value labels: the relief the contrast check requires, and they make
+    // identity legible without relying on hue.
+    const label = svgEl('text', {
+      x: width, y: y + barHeight, 'text-anchor': 'end',
+      fill: 'var(--text-primary)', 'font-size': 12, 'font-variant-numeric': 'tabular-nums',
+    });
+    label.textContent = formatValue(value, stat.unit);
+    svg.append(label);
+  });
+
+  return svg;
+}
+
+// --- table view (accessibility relief) -------------------------------------
+
+function renderTable() {
+  const card = $('table-card');
+  if (card.hidden) return;
+
+  const farms = Object.keys(FARM_COLOR);
+  const rows = state.catalogue.map((stat) => {
+    const latest = (state.history.get(stat.id) ?? []).at(-1);
+    const breakdown = state.byFarm.get(stat.id) ?? {};
+
+    return `<tr>
+      <td>${stat.name}</td>
+      <td>${latest ? formatValue(latest.value, stat.unit) : '—'}</td>
+      <td>${latest ? latest.sampleCount.toLocaleString() : '—'}</td>
+      ${farms.map((farm) => `<td>${breakdown[farm] !== undefined ? formatValue(breakdown[farm], stat.unit) : '—'}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  card.innerHTML = `<table>
+    <thead><tr>
+      <th>Stat</th><th>Value</th><th>Observations</th>
+      ${farms.map((farm, i) => `<th><span class="swatch" style="background:var(--farm-${i + 1})"></span>${farm}</th>`).join('')}
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="6">No data yet.</td></tr>'}</tbody>
+  </table>`;
+}
+
+$('table-toggle').addEventListener('click', (event) => {
+  const card = $('table-card');
+  card.hidden = !card.hidden;
+  event.target.textContent = card.hidden ? 'show' : 'hide';
+  event.target.setAttribute('aria-expanded', String(!card.hidden));
+  renderTable();
+});
+
+// --- boot ------------------------------------------------------------------
+
+(async function start() {
+  try {
+    await loadCatalogue();
+    renderTiles();
+    renderSeries();
+    renderFarms();
+  } catch (error) {
+    $('subtitle').textContent = `Could not read /stats: ${error.message}`;
+  }
+
+  connect();
+  await loadFarmBreakdowns();
+  setInterval(loadFarmBreakdowns, FARM_POLL_MS);
+})();
+</script>
+</body>
+</html>

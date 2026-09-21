@@ -45,6 +45,11 @@ var app = builder.Build();
 
 app.UseWebSockets();
 
+// The dashboard is served by this service rather than a container of its own, so it shares
+// an origin with the API and the WebSocket: no CORS, no second image, still one compose up.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "market" }));
 
 // Catalogue only. Values are deliberately absent so this response does not grow with the

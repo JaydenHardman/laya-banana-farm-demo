@@ -21,13 +21,4 @@ public sealed record Banana(
     float Weight,
     float Ripeness,
     BananaGrade Grade,
-    decimal Price)
-{
-    /// <summary>
-    /// Human-readable rendering handed to the classification model as its input state.
-    /// </summary>
-    public string ToModelState() =>
-        $"Banana harvested {DateHarvested:yyyy-MM-dd} from farm {FarmOrigin}. " +
-        $"Weight {Weight:F1}g. Ripeness {Ripeness:F3} on a scale where 0 is raw, " +
-        $"0.5 is perfectly ripe and 1 is expired. Harvest grade {Grade}. Price {Price:F2}.";
-}
+    decimal Price);

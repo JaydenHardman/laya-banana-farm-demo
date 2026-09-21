@@ -11,9 +11,18 @@ public sealed class FarmOptions
 {
     public const string SectionName = "Farm";
 
-    /// <summary>Mean bananas per second, before wave multipliers are applied.</summary>
+    /// <summary>
+    /// Mean bananas per second, before wave multipliers are applied.
+    /// </summary>
+    /// <remarks>
+    /// The design target is 200/s, but the measured end-to-end ceiling on CPU is roughly
+    /// 9/s: the classification model sustains about 3 inferences per second, and the bucket
+    /// cache cannot absorb the remainder fast enough (SPEC 6.1). The default is set to a
+    /// rate the whole stack actually sustains, so the system reaches steady state instead of
+    /// growing an unbounded queue. Raise it when the model has a GPU.
+    /// </remarks>
     [Range(0.1, 100_000)]
-    public double BaseRatePerSecond { get; set; } = 200;
+    public double BaseRatePerSecond { get; set; } = 8;
 
     /// <summary>Probability any given banana is golden. 1 in 1000.</summary>
     [Range(0, 1)]

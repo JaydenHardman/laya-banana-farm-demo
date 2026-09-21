@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from app.backends.base import normalise_grade
@@ -79,17 +80,44 @@ class LayaBackend:
             )
 
         async with self._semaphore:
-            raw_results = await asyncio.to_thread(self._predict_blocking, bananas)
+            predictions = await asyncio.to_thread(self._predict_blocking, bananas)
 
-        return [_to_classification(raw) for raw in raw_results]
+        classifications = []
 
-    def _predict_blocking(self, bananas: list[BananaPayload]) -> list[dict[str, Any]]:
+        for banana, (state, raw, elapsed_ms) in zip(bananas, predictions, strict=True):
+            classification = _to_classification(raw)
+
+            if self._settings.log_verdicts:
+                # Only cache misses get this far, so one pair of lines per inference stays
+                # readable even while the farm is running at full rate.
+                short_id = banana.id[:8]
+                logger.info("laya <- [%s] %s", short_id, state)
+                logger.info(
+                    "laya -> [%s] grade=%s conf=%.2f ripeness=%d throwAway=%.4f (%.0f ms)",
+                    short_id,
+                    classification.grade,
+                    classification.grade_confidence,
+                    classification.ripeness_level,
+                    classification.throw_away,
+                    elapsed_ms,
+                )
+
+            classifications.append(classification)
+
+        return classifications
+
+    def _predict_blocking(
+        self,
+        bananas: list[BananaPayload],
+    ) -> list[tuple[str, dict[str, Any], float]]:
         assert self._agent is not None  # guarded by the caller
         results = []
 
         for banana in bananas:
             state = banana.to_model_state()
-            results.append(self._agent.predict(state, build_questions(state)))
+            started = time.perf_counter()
+            raw = self._agent.predict(state, build_questions(state))
+            results.append((state, raw, (time.perf_counter() - started) * 1000))
 
         return results
 

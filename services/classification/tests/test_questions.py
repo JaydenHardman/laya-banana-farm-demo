@@ -16,12 +16,32 @@ def test_grade_criteria_cover_the_full_vocabulary() -> None:
     assert set(QUESTIONS["grade"]["criteria"]) == {"GOLDEN", "A", "B", "C", "OTHER"}
 
 
-def test_the_object_placeholder_is_replaced_with_the_banana() -> None:
+def test_the_banana_is_not_repeated_inside_the_instructions() -> None:
+    """
+    The state is passed to predict() separately; repeating it in the instruction collapsed
+    the grade answer from GOLDEN (0.752 confidence) to A (0.161) and hid every golden
+    banana. See build_questions' docstring.
+    """
     built = build_questions("a very ripe banana")
 
-    assert "a very ripe banana" in built["grade"]["instructions"]
-    assert "{object}" not in built["grade"]["instructions"]
-    assert "{object}" not in built["ripeness"]["instructions"]
+    assert "a very ripe banana" not in built["grade"]["instructions"]
+    assert built["grade"]["instructions"] == "What Grade is the banana?"
+
+
+def test_no_placeholder_survives_into_the_built_questions() -> None:
+    built = build_questions("a very ripe banana")
+
+    for question in built.values():
+        assert "{object}" not in question["instructions"]
+        assert question["instructions"] == question["instructions"].strip()
+
+
+def test_criteria_survive_the_build() -> None:
+    built = build_questions("a banana")
+
+    assert built["grade"]["criteria"] == QUESTIONS["grade"]["criteria"]
+    assert built["ripeness"]["criteria"] == QUESTIONS["ripeness"]["criteria"]
+    assert built["grade"]["type"] == "choice"
 
 
 def test_building_questions_does_not_mutate_the_template() -> None:

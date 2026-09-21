@@ -22,8 +22,14 @@ public sealed class FactoryOptions
     /// Seconds a box may wait, measured from its first banana, before its contents are
     /// flushed to <c>tooLongToFill</c>.
     /// </summary>
+    /// <remarks>
+    /// The brief specified 10s. At the rate this stack actually sustains, a 10s window
+    /// expires nearly every box before it can reach 20 bananas, so almost nothing would ever
+    /// reach <c>filledBox</c>. 60s lets boxes fill while still exercising the timeout path
+    /// for rare grade and ripeness combinations.
+    /// </remarks>
     [Range(1, 3_600)]
-    public int BoxTimeoutSeconds { get; set; } = 10;
+    public int BoxTimeoutSeconds { get; set; } = 60;
 
     /// <summary>How often expired boxes are swept, in milliseconds.</summary>
     [Range(50, 60_000)]

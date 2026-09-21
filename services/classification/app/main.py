@@ -26,6 +26,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("classification")
 
+# huggingface_hub logs one httpx line per file it checks, which buries the verdict lines.
+for _noisy in ("httpx", "httpcore", "huggingface_hub.utils._http"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
