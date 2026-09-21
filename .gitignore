@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+TestResults/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.local
+
+# Editor
+.vs/
+.idea/
+.DS_Store

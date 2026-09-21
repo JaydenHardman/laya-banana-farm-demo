@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/TestResults/
+.git/
+.github/
+.idea/
+.vs/
+docs/
+*.md
+.env

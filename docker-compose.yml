@@ -1,0 +1,119 @@
+# The whole system: docker compose up --build
+#
+# Ordering is handled by healthchecks rather than sleeps. In particular, `factory` does not
+# start until `classification` reports /ready, so no traffic reaches a model that is still
+# loading its weights.
+
+name: bananafarm
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: bananafarm-rabbitmq
+    hostname: bananafarm-rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:8-alpine
+    container_name: bananafarm-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  classification:
+    build:
+      context: .
+      dockerfile: services/classification/Dockerfile
+    container_name: bananafarm-classification
+    ports:
+      - "${CLASSIFICATION_PORT:-8000}:8000"
+    environment:
+      CLASSIFIER_BACKEND: ${CLASSIFIER_BACKEND:-laya}
+      CLASSIFIER_MODEL_ID: ${CLASSIFIER_MODEL_ID:-convaiinnovations/laya}
+      CLASSIFIER_MODEL_SUBFOLDER: ${CLASSIFIER_MODEL_SUBFOLDER:-}
+      CLASSIFIER_DEVICE: ${CLASSIFIER_DEVICE:-auto}
+      CLASSIFIER_MAX_CONCURRENCY: ${CLASSIFIER_MAX_CONCURRENCY:-4}
+      CLASSIFIER_MAX_BATCH_SIZE: ${CLASSIFIER_MAX_BATCH_SIZE:-64}
+    volumes:
+      # Weights are downloaded once and survive rebuilds.
+      - model-cache:/models
+
+  farm:
+    build:
+      context: .
+      dockerfile: src/Farm/Dockerfile
+    container_name: bananafarm-farm
+    ports:
+      - "${FARM_PORT:-8081}:8080"
+    environment:
+      RabbitMq__Uri: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      Farm__BaseRatePerSecond: ${FARM_BASE_RATE:-200}
+      Farm__GoldenProbability: ${FARM_GOLDEN_PROBABILITY:-0.001}
+      Farm__OverripeProbability: ${FARM_OVERRIPE_PROBABILITY:-0.035}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  factory:
+    build:
+      context: .
+      dockerfile: src/Factory/Dockerfile
+    container_name: bananafarm-factory
+    ports:
+      - "${FACTORY_PORT:-8082}:8080"
+    environment:
+      RabbitMq__Uri: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      Redis__Configuration: redis:6379
+      Classification__BaseAddress: http://classification:8000
+      Factory__BoxCapacity: ${FACTORY_BOX_CAPACITY:-20}
+      Factory__BoxTimeoutSeconds: ${FACTORY_BOX_TIMEOUT_SECONDS:-10}
+      Factory__ClassifierConcurrency: ${FACTORY_CLASSIFIER_CONCURRENCY:-5}
+      Factory__CacheRipenessBucket: ${FACTORY_CACHE_RIPENESS_BUCKET:-0.05}
+      Factory__CacheWeightBucketGrams: ${FACTORY_CACHE_WEIGHT_BUCKET:-10}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      classification:
+        condition: service_healthy
+
+  market:
+    build:
+      context: .
+      dockerfile: src/Market/Dockerfile
+    container_name: bananafarm-market
+    ports:
+      - "${MARKET_PORT:-8083}:8080"
+    environment:
+      RabbitMq__Uri: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      Market__RedisConfiguration: redis:6379
+      Market__ConsumeRawProduction: ${MARKET_CONSUME_RAW_PRODUCTION:-false}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  rabbitmq-data:
+  model-cache:

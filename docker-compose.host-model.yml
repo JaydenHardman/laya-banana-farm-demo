@@ -1,0 +1,31 @@
+# Overlay for running Laya on the host instead of in a container.
+#
+# Containers on Apple Silicon have no Metal access, so in-container inference is CPU-only.
+# Running the model on the host lets it use the GPU (device="mps") and is noticeably faster
+# for iteration.
+#
+#   1. Start the model on your host:
+#        python3 -m venv .venv && source .venv/bin/activate
+#        pip install -r services/classification/requirements.txt
+#        CLASSIFIER_DEVICE=mps uvicorn app.main:app --app-dir services/classification --port 8000
+#
+#   2. Start everything else, pointed at it:
+#        docker compose -f docker-compose.yml -f docker-compose.host-model.yml up --build
+
+services:
+  classification:
+    # Not started; the host process serves this role instead.
+    deploy:
+      replicas: 0
+
+  factory:
+    environment:
+      Classification__BaseAddress: http://host.docker.internal:8000
+    # Redeclared in full: the container the default file waits on is not running here.
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

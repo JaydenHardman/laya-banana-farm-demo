@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>BananaFarm.Farm</RootNamespace>
+    <AssemblyName>Farm</AssemblyName>
+    <UserSecretsId>banana-farm-farm</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../BananaFarm.Contracts/BananaFarm.Contracts.csproj" />
+    <ProjectReference Include="../BananaFarm.Messaging/BananaFarm.Messaging.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Farm.Tests" />
+  </ItemGroup>
+</Project>

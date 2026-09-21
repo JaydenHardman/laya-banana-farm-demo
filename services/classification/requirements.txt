@@ -1,0 +1,7 @@
+# Pinned to the current stable releases as of 2026-09-21.
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+
+# The classification model itself. Pulls in torch and transformers.
+laya==0.3.5

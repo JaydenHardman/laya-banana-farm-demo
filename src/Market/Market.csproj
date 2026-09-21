@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>BananaFarm.Market</RootNamespace>
+    <AssemblyName>Market</AssemblyName>
+    <UserSecretsId>banana-farm-market</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="3.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../BananaFarm.Contracts/BananaFarm.Contracts.csproj" />
+    <ProjectReference Include="../BananaFarm.Messaging/BananaFarm.Messaging.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Market.Tests" />
+  </ItemGroup>
+</Project>

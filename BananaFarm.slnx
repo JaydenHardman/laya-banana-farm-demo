@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BananaFarm.Contracts/BananaFarm.Contracts.csproj" />
+    <Project Path="src/BananaFarm.Messaging/BananaFarm.Messaging.csproj" />
+    <Project Path="src/Farm/Farm.csproj" />
+    <Project Path="src/Factory/Factory.csproj" />
+    <Project Path="src/Market/Market.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Farm.Tests/Farm.Tests.csproj" />
+    <Project Path="tests/Factory.Tests/Factory.Tests.csproj" />
+    <Project Path="tests/Market.Tests/Market.Tests.csproj" />
+  </Folder>
+</Solution>
