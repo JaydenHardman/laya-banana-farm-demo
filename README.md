@@ -239,11 +239,11 @@ Copy `.env.example` to `.env`. Notable knobs:
 
 | Variable | Default | Effect |
 |---|---|---|
-| `FARM_BASE_RATE` | `200` | Mean bananas per second. |
+| `FARM_BASE_RATE` | `8` | Mean bananas per second. |
 | `CLASSIFIER_BACKEND` | `laya` | `laya` or `stub`. |
 | `CLASSIFIER_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, `mps`. |
 | `FACTORY_CACHE_RIPENESS_BUCKET` | `0.05` | Classification cache granularity. |
-| `FACTORY_BOX_TIMEOUT_SECONDS` | `10` | Unfilled box expiry. |
+| `FACTORY_BOX_TIMEOUT_SECONDS` | `60` | Unfilled box expiry. |
 
 ---
 
