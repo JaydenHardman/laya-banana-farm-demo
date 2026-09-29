@@ -1,18 +1,36 @@
 # BananaFarm
 
-Four microservices that generate synthetic banana harvest data at ~200 items/second,
-classify it with a locally-running decision model, sort it into boxes, and aggregate market
-metrics.
+## Project description
+
+A set of four services that generate synthetic banana data, classify each banana with the
+Laya decision model, pack them into boxes, and total up prices and losses. The services
+communicate over RabbitMQ and keep their state in Redis. A web dashboard displays the totals.
+
+---
+
+## Startup
+
+Requires Docker.
+
+```bash
+git clone https://github.com/JaydenHardman/laya-banana-farm-demo.git
+```
+
+```bash
+cd laya-banana-farm-demo
+```
 
 ```bash
 docker compose up --build
 ```
 
+Dashboard: <http://localhost:8083>
+
+---
+
 The full specification is in [SPEC.md](SPEC.md); the design decisions and the reasoning
 behind them are in
 [docs/superpowers/specs/2026-09-21-banana-farm-design.md](docs/superpowers/specs/2026-09-21-banana-farm-design.md).
-
----
 
 ## The services
 
